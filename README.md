@@ -1,6 +1,6 @@
 # flutter_facturacion_sistema
 
-A new Flutter project.
+Sistema para generar recibos de ingreso egreso y facturas.
 
 ## Getting Started
 
