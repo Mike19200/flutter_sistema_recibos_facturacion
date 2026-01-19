@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io'; 
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -90,6 +90,42 @@ class _ReciboPreviewState extends State<ReciboPreview> {
     // Valor mostrado en PDF: siempre positivo
     final valorMostrado = widget.valor.startsWith('-') ? widget.valor.substring(1) : widget.valor;
 
+    // --- Helpers para PDF ---
+    pw.Widget _campoPdf(String titulo, String valor) {
+      return pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            titulo,
+            style: pw.TextStyle(
+              font: ttf,
+              fontSize: 12,
+              fontWeight: pw.FontWeight.bold,
+              color: pw.PdfColors.blue900,
+            ),
+          ),
+          pw.Container(height: 1, color: pw.PdfColors.blue900),
+          pw.SizedBox(height: 3),
+          pw.Text(valor, style: pw.TextStyle(font: ttf, fontSize: 12)),
+        ],
+      );
+    }
+
+    pw.Widget _filaDoblePdf({
+      required String titulo1,
+      required String valor1,
+      required String titulo2,
+      required String valor2,
+    }) {
+      return pw.Row(
+        children: [
+          pw.Expanded(child: _campoPdf(titulo1, valor1)),
+          pw.SizedBox(width: 15),
+          pw.Expanded(child: _campoPdf(titulo2, valor2)),
+        ],
+      );
+    }
+
     pdf.addPage(
       pw.Page(
         pageFormat: pw.PdfPageFormat(400, 500, marginAll: 5),
@@ -98,36 +134,58 @@ class _ReciboPreviewState extends State<ReciboPreview> {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.SizedBox(height: 10),
+              // Logo
               pw.Center(child: pw.Image(pw.MemoryImage(logoBytes), width: 140, height: 100)),
               pw.SizedBox(height: 10),
+              // Título
               pw.Center(
                   child: pw.Text(titulo,
                       style: pw.TextStyle(font: ttf, fontSize: 16, fontWeight: pw.FontWeight.bold))),
               pw.SizedBox(height: 5),
+              // Número
               pw.Center(child: pw.Text('No. $numeroRecibo', style: pw.TextStyle(font: ttf, fontSize: 10))),
-              pw.SizedBox(height: 10),
-              pw.Divider(color: pw.PdfColors.blue900),
-              _buildRowPdf('Ciudad:', widget.ciudad, ttf),
-              pw.Divider(color: pw.PdfColors.blue900),
-              _buildRowPdf('Fecha:', widget.fecha, ttf),
-              pw.Divider(color: pw.PdfColors.blue900),
-              _buildRowPdf(pagadoTexto, widget.nombre, ttf),
-              pw.Divider(color: pw.PdfColors.blue900),
-              _buildRowPdf('Concepto:', widget.concepto, ttf),
-              pw.Divider(color: pw.PdfColors.blue900),
-              _buildRowPdf('Valor:', '\$$valorMostrado', ttf),
-              pw.Divider(color: pw.PdfColors.blue900),
-              _buildRowPdf('En letras:', '${widget.valorTexto} COP', ttf),
-              pw.Divider(color: pw.PdfColors.blue900),
-              pw.SizedBox(height: 10),
+              pw.SizedBox(height: 15),
+
+              // Ciudad | Fecha
+              _filaDoblePdf(
+                titulo1: 'Ciudad:',
+                valor1: widget.ciudad,
+                titulo2: 'Fecha:',
+                valor2: widget.fecha,
+              ),
+              pw.SizedBox(height: 12),
+
+              // Pagado por / a
+              _campoPdf(pagadoTexto, widget.nombre),
+              pw.SizedBox(height: 12),
+
+              // Concepto
+              _campoPdf('Por concepto de:', widget.concepto),
+              pw.SizedBox(height: 12),
+
+              // Valor | En letras
+              _filaDoblePdf(
+                titulo1: 'Valor:',
+                valor1: '\$$valorMostrado',
+                titulo2: 'En letras:',
+                valor2: '${widget.valorTexto} COP',
+              ),
+              pw.SizedBox(height: 15),
+
+              // Firma y sello
               pw.Center(
                 child: pw.Column(
                   children: [
                     pw.Image(pw.MemoryImage(firmaFinal), width: 100, height: 100),
-                    pw.Text(widget.tipo == TipoRecibo.Ingreso ? 'Sello digital válido' : 'Firma del receptor',
-                        style: pw.TextStyle(font: ttf, fontSize: 10)),
-                    pw.Text('Recibo generado electrónicamente',
-                        style: pw.TextStyle(font: ttf, fontSize: 10)),
+                    pw.SizedBox(height: 5),
+                    pw.Text(
+                      widget.tipo == TipoRecibo.Ingreso ? 'Sello digital válido' : 'Firma del receptor',
+                      style: pw.TextStyle(font: ttf, fontSize: 10),
+                    ),
+                    pw.Text(
+                      'Recibo generado electrónicamente',
+                      style: pw.TextStyle(font: ttf, fontSize: 10),
+                    ),
                   ],
                 ),
               ),
@@ -142,36 +200,30 @@ class _ReciboPreviewState extends State<ReciboPreview> {
 
   // ======== GUARDAR RECIBO ========
   Future<void> _guardarRecibo() async {
-    // Obtener la lista de recibos guardados según el tipo
     final recibosExistentes = await FacturaStorage.obtenerArchivos(
       widget.tipo == TipoRecibo.Ingreso ? 'Ingreso' : 'Egreso',
     );
-  
-    // Verificar si ya existe un recibo con el mismo número
+
     final yaExiste = recibosExistentes.any((factura) => factura.numero == numeroRecibo);
-  
+
     if (yaExiste) {
-      // Mostrar mensaje de error si ya existe
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('¡Este recibo ya ha sido guardado!'),
           backgroundColor: Colors.red,
         ),
       );
-      return; // Salimos sin guardar
+      return;
     }
-  
-    // Crear PDF
+
     final pdf = await _crearPdf();
     final fileName =
         '${widget.tipo == TipoRecibo.Ingreso ? 'ReciboIngreso' : 'ReciboEgreso'}_${numeroRecibo}_${widget.fecha.replaceAll('/', '-')}.pdf';
-  
-    // Compartir PDF
+
     await Printing.sharePdf(bytes: await pdf.save(), filename: fileName);
-  
-    // Guardar en storage (negativos solo para egresos internamente)
+
     final valorGuardado = widget.tipo == TipoRecibo.Egreso ? '-${widget.valor}' : widget.valor;
-  
+
     await FacturaStorage.guardarArchivo(
       Factura(
         numero: numeroRecibo,
@@ -185,8 +237,7 @@ class _ReciboPreviewState extends State<ReciboPreview> {
       ),
       widget.tipo == TipoRecibo.Ingreso ? 'Ingreso' : 'Egreso',
     );
-  
-    // Mostrar mensaje de éxito
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -196,7 +247,6 @@ class _ReciboPreviewState extends State<ReciboPreview> {
       ),
     );
   }
-
 
   // ======== ENVIAR PDF ========
   Future<void> _enviarPdf() async {
@@ -210,21 +260,6 @@ class _ReciboPreviewState extends State<ReciboPreview> {
   Future<void> _imprimirPdf() async {
     final pdf = await _crearPdf();
     await Printing.layoutPdf(onLayout: (format) async => pdf.save());
-  }
-
-  // ======== ROW PARA PDF ========
-  pw.Widget _buildRowPdf(String title, String value, pw.Font font) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 2),
-      child: pw.Row(
-        children: [
-          pw.Expanded(
-              flex: 3,
-              child: pw.Text(title, style: pw.TextStyle(font: font, fontWeight: pw.FontWeight.bold, fontSize: 12))),
-          pw.Expanded(flex: 5, child: pw.Text(value, style: pw.TextStyle(font: font, fontSize: 12))),
-        ],
-      ),
-    );
   }
 
   @override
