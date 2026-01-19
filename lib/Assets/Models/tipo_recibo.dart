@@ -1,0 +1,4 @@
+enum TipoRecibo {
+  Ingreso,
+  Egreso,
+}
