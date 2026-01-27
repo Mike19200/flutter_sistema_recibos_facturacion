@@ -163,7 +163,7 @@ class _RecibosScreenState extends State<RecibosScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Recibos'),
+        title: const Text('Recibos KALEYMAN'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

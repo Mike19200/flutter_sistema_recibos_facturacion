@@ -128,7 +128,7 @@ class _ReciboPreviewState extends State<ReciboPreview> {
 
     pdf.addPage(
       pw.Page(
-        pageFormat: pw.PdfPageFormat(400, 500, marginAll: 5),
+        pageFormat: pw.PdfPageFormat(400, 500, marginAll: 20),
         build: (context) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -170,21 +170,21 @@ class _ReciboPreviewState extends State<ReciboPreview> {
                 titulo2: 'En letras:',
                 valor2: '${widget.valorTexto} COP',
               ),
-              pw.SizedBox(height: 15),
+              pw.SizedBox(height: 30),
 
               // Firma y sello
               pw.Center(
                 child: pw.Column(
                   children: [
-                    pw.Image(pw.MemoryImage(firmaFinal), width: 100, height: 100),
-                    pw.SizedBox(height: 5),
+                    pw.Image(pw.MemoryImage(firmaFinal), width: 200, height: 100),
+                    pw.SizedBox(height: 10),
                     pw.Text(
                       widget.tipo == TipoRecibo.Ingreso ? 'Sello digital válido' : 'Firma del receptor',
-                      style: pw.TextStyle(font: ttf, fontSize: 10),
+                      style: pw.TextStyle(font: ttf, fontSize: 11),
                     ),
                     pw.Text(
                       'Recibo generado electrónicamente',
-                      style: pw.TextStyle(font: ttf, fontSize: 10),
+                      style: pw.TextStyle(font: ttf, fontSize: 11),
                     ),
                   ],
                 ),

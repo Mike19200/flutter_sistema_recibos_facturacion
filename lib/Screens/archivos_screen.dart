@@ -273,25 +273,25 @@ class _ArchivosScreenState extends State<ArchivosScreen> {
                 ),
               ],
             ),
-            pw.SizedBox(height: 20),
+            pw.SizedBox(height: 30),
   
             // Firma y sello
             pw.Center(
               child: pw.Column(
                 children: [
                   pw.Image(pw.MemoryImage(firmaFinal), width: 200, height: 100),
-                  pw.SizedBox(height: 15),
+                  pw.SizedBox(height: 10),
                   pw.Text(
                     carpetaSeleccionada == 'Egreso'
                         ? 'Firma del receptor'
                         : 'Sello digital válido',
                     style: pw.TextStyle(
-                        font: ttf, fontSize: 10, color: PdfColors.blue900),
+                        font: ttf, fontSize: 11),
                   ),
                   pw.Text(
                     'Documento generado electrónicamente',
                     style: pw.TextStyle(
-                        font: ttf, fontSize: 10, color: PdfColors.blue900),
+                        font: ttf, fontSize: 11),
                   ),
                 ],
               ),

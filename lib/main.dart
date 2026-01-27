@@ -11,7 +11,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Facturación',
+      title: 'Recibos KALEYMAN',
       debugShowCheckedModeBanner: false,
       routerConfig: appRouter,
     );
