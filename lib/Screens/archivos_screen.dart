@@ -86,11 +86,11 @@ class _ArchivosScreenState extends State<ArchivosScreen> {
     late final String titulo;
 
     if (carpetaSeleccionada == 'Ingreso') {
-      titulo = 'RECIBO DE INGRESO DIGITAL';
+      titulo = 'RECIBO DE INGRESO';
     } else if (carpetaSeleccionada == 'Egreso') {
-      titulo = 'RECIBO DE EGRESO DIGITAL';
+      titulo = 'RECIBO DE EGRESO';
     } else {
-      titulo = 'FACTURA DIGITAL';
+      titulo = 'FACTURA';
     }
   
     final pagadoTexto = carpetaSeleccionada == 'Egreso'
@@ -99,31 +99,30 @@ class _ArchivosScreenState extends State<ArchivosScreen> {
   
     pdf.addPage(
     pw.Page(
-      pageFormat: pw.PdfPageFormat(450, 550, marginAll: 10),
+      pageFormat: pw.PdfPageFormat(400, 530, marginLeft: 15, marginRight: 15, marginTop: 5),
       build: (context) {
         return pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.SizedBox(height: 10),
             // Logo
             pw.Center(
               child: pw.Image(pw.MemoryImage(logoBytes), width: 140, height: 100),
             ),
-            pw.SizedBox(height: 10),
+            pw.SizedBox(height: 13),
             // Título
             pw.Center(
               child: pw.Text(
                 titulo,
                 style: pw.TextStyle(
-                    font: ttf, fontSize: 18, fontWeight: pw.FontWeight.bold),
+                    font: ttf, fontSize: 16, fontWeight: pw.FontWeight.bold),
               ),
             ),
-            pw.SizedBox(height: 10),
+            pw.SizedBox(height: 5),
             // Número de archivo
             pw.Center(
               child: pw.Text(
                 'No. ${archivo.numero}',
-                style: pw.TextStyle(font: ttf, fontSize: 15),
+                style: pw.TextStyle(font: ttf, fontSize: 10),
               ),
             ),
             pw.SizedBox(height: 15),
@@ -273,13 +272,13 @@ class _ArchivosScreenState extends State<ArchivosScreen> {
                 ),
               ],
             ),
-            pw.SizedBox(height: 30),
+            pw.SizedBox(height: 15),
   
             // Firma y sello
             pw.Center(
               child: pw.Column(
                 children: [
-                  pw.Image(pw.MemoryImage(firmaFinal), width: 200, height: 100),
+                  pw.Image(pw.MemoryImage(firmaFinal), width: 180, height: 80),
                   pw.SizedBox(height: 10),
                   pw.Text(
                     carpetaSeleccionada == 'Egreso'

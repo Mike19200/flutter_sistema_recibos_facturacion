@@ -1,0 +1,4 @@
+enum SeleccionEmpresa {
+  Latinoandes,
+  Kaleyman,
+}

@@ -1,12 +1,18 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_facturacion_sistema/Assets/Models/seleccion_empresa.dart';
 import 'package:flutter_facturacion_sistema/Widgets/factura_form.dart';
 import 'package:flutter_facturacion_sistema/Screens/recibos_preview.dart';
 import 'package:flutter_facturacion_sistema/Assets/Models/tipo_recibo.dart'; // Enum compartido
 import 'package:go_router/go_router.dart';
 import 'package:signature/signature.dart';
+import 'package:window_size/window_size.dart';
+
+const Size desktopNormalSize = Size(600, 1000);
+const Size desktopFirmaSize = Size(1000, 800);
 
 class RecibosScreen extends StatefulWidget {
   const RecibosScreen({super.key});
@@ -26,7 +32,8 @@ class _RecibosScreenState extends State<RecibosScreen> {
   String concepto = '';
   String valor = '';
   String valorTexto = '';
-  TipoRecibo tipoSeleccionado = TipoRecibo.Ingreso; // Por defecto
+  TipoRecibo tipoSeleccionado = TipoRecibo.Ingreso; 
+  SeleccionEmpresa empresaSeleccionada = SeleccionEmpresa.Kaleyman; // default
   Uint8List? firmaEgreso; // ✅ Firma para egresos
 
   // ======== PEDIR FIRMA ========
@@ -39,30 +46,55 @@ class _RecibosScreenState extends State<RecibosScreen> {
 
   Uint8List? firma;
 
-  // Forzar orientación horizontal
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
+  final bool isDesktop =
+      Platform.isWindows || Platform.isLinux || Platform.isMacOS;
 
-  // Mostrar firma en pantalla completa
+  // 🖥 Desktop → cambiar ventana a 900x900
+  if (isDesktop) {
+    setWindowMinSize(desktopFirmaSize);
+    setWindowMaxSize(desktopFirmaSize);
+    setWindowFrame(
+      Rect.fromLTWH(100, 100, desktopFirmaSize.width, desktopFirmaSize.height),
+    );
+  } 
+  // 📱 Móvil → forzar horizontal
+  else {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  // Mostrar diálogo de firma
   await showDialog(
     context: context,
     barrierDismissible: false,
     builder: (context) => WillPopScope(
-      // Evitar cerrar con el botón atrás
       onWillPop: () async => false,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Firma del receptor'),
-          automaticallyImplyLeading: false, // quitar botón atrás
+          automaticallyImplyLeading: false,
         ),
-        body: Center(
-          child: Signature(
-            controller: controller,
-            width: double.infinity,
-            height: double.infinity,
-            backgroundColor: Colors.white,
+        body: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Listener(
+            behavior: HitTestBehavior.opaque,
+            onPointerDown: (_) {
+              // comienza la captura de puntero
+            },
+            onPointerUp: (_) {
+              // finaliza la captura
+            },
+            child: MouseRegion(
+              //cursor: SystemMouseCursors.none, // 👻 ocultar cursor
+              child: SizedBox.expand(
+                child: Signature(
+                  controller: controller,
+                  backgroundColor: Colors.white,
+                ),
+              ),
+            ),
           ),
         ),
         bottomNavigationBar: Padding(
@@ -71,39 +103,39 @@ class _RecibosScreenState extends State<RecibosScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               ElevatedButton(
-              onPressed: controller.clear,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                onPressed: controller.clear,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              ),
-              child: const Text('Borrar', style: TextStyle(color: Colors.white)),
+                child: const Text('Borrar', style: TextStyle(color: Colors.white)),
               ),
               ElevatedButton(
-              onPressed: () async {
-                if (controller.isNotEmpty) {
-                firma = await controller.toPngBytes();
-                if (mounted) {
-                  Navigator.of(context).pop();
-                }
-                } else {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('No se ha dibujado ninguna firma')),
-                  );
-                }
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                onPressed: () async {
+                  if (controller.isNotEmpty) {
+                    firma = await controller.toPngBytes();
+                    if (mounted) Navigator.of(context).pop();
+                  } else {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('No se ha dibujado ninguna firma'),
+                        ),
+                      );
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              ),
-              child: const Text('Aceptar', style: TextStyle(color: Colors.white)),
+                child: const Text('Aceptar', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -112,14 +144,24 @@ class _RecibosScreenState extends State<RecibosScreen> {
     ),
   );
 
-  // Volver a orientación vertical cuando se cierre la firma
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  // 🔙 Restaurar tamaño y orientación
+  if (isDesktop) {
+    setWindowMinSize(desktopNormalSize);
+    setWindowMaxSize(desktopNormalSize);
+    setWindowFrame(
+      Rect.fromLTWH(100, 100, desktopNormalSize.width, desktopNormalSize.height),
+    );
+  } else {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
 
   return firma;
 }
+
+
 
   // ======== MOSTRAR PREVIEW ========
       void mostrarPreview({
@@ -163,7 +205,7 @@ class _RecibosScreenState extends State<RecibosScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Recibos KALEYMAN'),
+        title: const Text('Recibos KALEYMAN - LATINOANDES'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -176,7 +218,8 @@ class _RecibosScreenState extends State<RecibosScreen> {
                 valor: valor,
                 valorTexto: valorTexto,
                 tipo: tipoSeleccionado,
-                firma: firmaEgreso, // ✅ Pasamos la firma al preview
+                empresa: empresaSeleccionada, // 👈 NUEVO
+                firma: firmaEgreso,
                 onEditar: editarDatos,
               )
             : Column(
@@ -202,6 +245,29 @@ class _RecibosScreenState extends State<RecibosScreen> {
                           if (value != null) {
                             setState(() {
                               tipoSeleccionado = value;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 10),
+                      const Text('Empresa: ', style: TextStyle(fontSize: 16)),
+                      const SizedBox(width: 10),
+                      DropdownButton<SeleccionEmpresa>(
+                        value: empresaSeleccionada,
+                        items: const [
+                          DropdownMenuItem(
+                            value: SeleccionEmpresa.Latinoandes,
+                            child: Text('LATINOANDES'),
+                          ),
+                          DropdownMenuItem(
+                            value: SeleccionEmpresa.Kaleyman,
+                            child: Text('KALEYMAN'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              empresaSeleccionada = value;
                             });
                           }
                         },

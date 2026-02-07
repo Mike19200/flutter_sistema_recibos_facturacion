@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_facturacion_sistema/Assets/Models/factura_model.dart';
+import 'package:flutter_facturacion_sistema/Assets/Models/seleccion_empresa.dart';
 import 'package:flutter_facturacion_sistema/Storage/factura_storage.dart';
 import 'package:flutter_facturacion_sistema/Assets/Models/tipo_recibo.dart';
 import 'package:path_provider/path_provider.dart';
@@ -23,6 +24,7 @@ class ReciboPreview extends StatefulWidget {
   final TipoRecibo tipo;
   final Uint8List? firma; // ✅ Firma pasada desde RecibosScreen
   final VoidCallback onEditar;
+  final SeleccionEmpresa empresa;
 
   const ReciboPreview({
     super.key,
@@ -33,6 +35,7 @@ class ReciboPreview extends StatefulWidget {
     required this.valor,
     required this.valorTexto,
     required this.tipo,
+    required this.empresa,
     this.firma,
     required this.onEditar,
   });
@@ -62,27 +65,48 @@ class _ReciboPreviewState extends State<ReciboPreview> {
     final pdf = pw.Document();
 
     final ttf = pw.Font.ttf(await rootBundle.load('lib/Assets/Fonts/Roboto-Regular.ttf'));
-    final logoBytesData = await rootBundle.load('lib/Assets/Img/logo.png');
+    String logoPath;
+
+    switch (widget.empresa) {
+      case SeleccionEmpresa.Latinoandes:
+        logoPath = 'lib/Assets/Img/logo.png';
+        break;
+      case SeleccionEmpresa.Kaleyman:
+        logoPath = 'lib/Assets/Img/logo.png';
+        break;
+    }
+    
+    final logoBytesData = await rootBundle.load(logoPath);
     final Uint8List logoBytes = logoBytesData.buffer.asUint8List();
 
-    // Firma según tipo
+
     Uint8List firmaFinal;
+
     if (widget.tipo == TipoRecibo.Ingreso) {
-      final ByteData firmaData = await rootBundle.load('lib/Assets/Img/firma.png');
+      String firmaPath;
+    
+      if (widget.empresa == SeleccionEmpresa.Latinoandes) {
+        firmaPath = 'lib/Assets/Img/firma.png';
+      } else {
+        firmaPath = 'lib/Assets/Img/firma.png';
+      }
+    
+      final firmaData = await rootBundle.load(firmaPath);
       firmaFinal = firmaData.buffer.asUint8List();
     } else {
-      // Egreso: usamos la firma recibida desde RecibosScreen
+      // EGRESO → firma capturada (NO cambia)
       if (widget.firma != null) {
         firmaFinal = widget.firma!;
       } else {
-        final ByteData firmaData = await rootBundle.load('lib/Assets/Img/firma_otrapersona.png');
+        final firmaData = await rootBundle.load('lib/Assets/Img/firma_otrapersona.png');
         firmaFinal = firmaData.buffer.asUint8List();
       }
     }
 
+
     final titulo = widget.tipo == TipoRecibo.Ingreso
-        ? 'RECIBO DE INGRESO DIGITAL'
-        : 'RECIBO DE EGRESO DIGITAL';
+        ? 'RECIBO DE INGRESO'
+        : 'RECIBO DE EGRESO';
 
     // Texto que cambia según tipo
     final pagadoTexto = widget.tipo == TipoRecibo.Ingreso ? 'Pagado por:' : 'Pagado a:';
@@ -128,15 +152,14 @@ class _ReciboPreviewState extends State<ReciboPreview> {
 
     pdf.addPage(
       pw.Page(
-        pageFormat: pw.PdfPageFormat(400, 500, marginAll: 20),
+        pageFormat: pw.PdfPageFormat(400, 530, marginLeft: 15, marginRight: 15, marginTop: 5),
         build: (context) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.SizedBox(height: 10),
               // Logo
               pw.Center(child: pw.Image(pw.MemoryImage(logoBytes), width: 140, height: 100)),
-              pw.SizedBox(height: 10),
+              pw.SizedBox(height: 13),
               // Título
               pw.Center(
                   child: pw.Text(titulo,
@@ -170,20 +193,20 @@ class _ReciboPreviewState extends State<ReciboPreview> {
                 titulo2: 'En letras:',
                 valor2: '${widget.valorTexto} COP',
               ),
-              pw.SizedBox(height: 30),
+              pw.SizedBox(height: 15),
 
               // Firma y sello
               pw.Center(
                 child: pw.Column(
                   children: [
-                    pw.Image(pw.MemoryImage(firmaFinal), width: 200, height: 100),
+                    pw.Image(pw.MemoryImage(firmaFinal), width: 180, height: 80),
                     pw.SizedBox(height: 10),
                     pw.Text(
                       widget.tipo == TipoRecibo.Ingreso ? 'Sello digital válido' : 'Firma del receptor',
                       style: pw.TextStyle(font: ttf, fontSize: 11),
                     ),
                     pw.Text(
-                      'Recibo generado electrónicamente',
+                      'Documento generado electrónicamente',
                       style: pw.TextStyle(font: ttf, fontSize: 11),
                     ),
                   ],
@@ -200,30 +223,13 @@ class _ReciboPreviewState extends State<ReciboPreview> {
 
   // ======== GUARDAR RECIBO ========
   Future<void> _guardarRecibo() async {
-    final recibosExistentes = await FacturaStorage.obtenerArchivos(
-      widget.tipo == TipoRecibo.Ingreso ? 'Ingreso' : 'Egreso',
-    );
-
-    final yaExiste = recibosExistentes.any((factura) => factura.numero == numeroRecibo);
-
-    if (yaExiste) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('¡Este recibo ya ha sido guardado!'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
     final pdf = await _crearPdf();
+    final pdfBytes = await pdf.save();
     final fileName =
         '${widget.tipo == TipoRecibo.Ingreso ? 'ReciboIngreso' : 'ReciboEgreso'}_${numeroRecibo}_${widget.fecha.replaceAll('/', '-')}.pdf';
 
-    await Printing.sharePdf(bytes: await pdf.save(), filename: fileName);
-
+    // ===== Guardar en almacenamiento interno de la app =====
     final valorGuardado = widget.tipo == TipoRecibo.Egreso ? '-${widget.valor}' : widget.valor;
-
     await FacturaStorage.guardarArchivo(
       Factura(
         numero: numeroRecibo,
@@ -238,14 +244,44 @@ class _ReciboPreviewState extends State<ReciboPreview> {
       widget.tipo == TipoRecibo.Ingreso ? 'Ingreso' : 'Egreso',
     );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${widget.tipo == TipoRecibo.Ingreso ? 'Recibo de ingreso' : 'Recibo de egreso'} guardado correctamente',
+    // ===== Compartir PDF (opcional) =====
+    await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
+
+    // ===== Guardar también en Descargas si es Windows =====
+    if (Platform.isWindows) {
+      try {
+        final downloadsDir = Directory('${Platform.environment['USERPROFILE']}\\Downloads');
+        if (!downloadsDir.existsSync()) downloadsDir.createSync(recursive: true);
+
+        final filePath = '${downloadsDir.path}\\$fileName';
+        final file = File(filePath);
+        await file.writeAsBytes(pdfBytes);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Recibo guardado en la app y en: $filePath'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Recibo guardado en la app, pero no se pudo guardar en Descargas: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } else {
+      // Android/iOS solo app
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${widget.tipo == TipoRecibo.Ingreso ? 'Recibo de ingreso' : 'Recibo de egreso'} guardado correctamente en la app',
+          ),
+          backgroundColor: Colors.green,
         ),
-        backgroundColor: Colors.green,
-      ),
-    );
+      );
+    }
   }
 
   // ======== ENVIAR PDF ========
@@ -270,6 +306,13 @@ class _ReciboPreviewState extends State<ReciboPreview> {
       children: [
         Text('RECIBO DE $tipoTexto DIGITAL', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
+        FacturaRow(
+          title: 'Empresa:',
+          value: widget.empresa == SeleccionEmpresa.Latinoandes
+              ? 'LATINOANDES'
+              : 'KALEYMAN',
+        ),
+        const SizedBox(height: 15),
         FacturaRow(title: 'Recibo No:', value: numeroRecibo),
         const Divider(),
         FacturaRow(title: 'Ciudad:', value: widget.ciudad),
@@ -288,13 +331,13 @@ class _ReciboPreviewState extends State<ReciboPreview> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              ElevatedButton(onPressed: _guardarRecibo, child: const Text('Guardar')),
+              ElevatedButton(onPressed: _guardarRecibo, child: Text(Platform.isWindows ? 'Descargar' : 'Guardar')),
             ]),
             const SizedBox(height: 15),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              ElevatedButton(onPressed: _enviarPdf, child: const Text('Enviar PDF')),
+              ElevatedButton(onPressed: _enviarPdf, child: const Text('Ver/Enviar')),
               const SizedBox(width: 20),
-              ElevatedButton(onPressed: _imprimirPdf, child: const Text('Imprimir PDF')),
+              ElevatedButton(onPressed: _imprimirPdf, child: const Text('Imprimir')),
             ]),
             const Divider(height: 40),
             const SizedBox(height: 10),
