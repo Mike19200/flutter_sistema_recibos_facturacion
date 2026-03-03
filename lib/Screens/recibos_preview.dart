@@ -46,6 +46,7 @@ class ReciboPreview extends StatefulWidget {
 
 class _ReciboPreviewState extends State<ReciboPreview> {
   late final String numeroRecibo;
+   bool _yaGuardado = false; //
 
   @override
   void initState() {
@@ -64,15 +65,21 @@ class _ReciboPreviewState extends State<ReciboPreview> {
   Future<pw.Document> _crearPdf() async {
     final pdf = pw.Document();
 
+    final pw.PdfColor colorEmpresa =
+    widget.empresa == SeleccionEmpresa.Latinoandes
+        ? pw.PdfColors.red900
+        : pw.PdfColors.blue900;
+
+
     final ttf = pw.Font.ttf(await rootBundle.load('lib/Assets/Fonts/Roboto-Regular.ttf'));
     String logoPath;
 
     switch (widget.empresa) {
       case SeleccionEmpresa.Latinoandes:
-        logoPath = 'lib/Assets/Img/logo.png';
+        logoPath = 'lib/Assets/Img/logo_latinoandes.png';
         break;
       case SeleccionEmpresa.Kaleyman:
-        logoPath = 'lib/Assets/Img/logo.png';
+        logoPath = 'lib/Assets/Img/logo_kaleyman.png';
         break;
     }
     
@@ -86,9 +93,9 @@ class _ReciboPreviewState extends State<ReciboPreview> {
       String firmaPath;
     
       if (widget.empresa == SeleccionEmpresa.Latinoandes) {
-        firmaPath = 'lib/Assets/Img/firma.png';
+        firmaPath = 'lib/Assets/Img/firma_latinoandes.png';
       } else {
-        firmaPath = 'lib/Assets/Img/firma.png';
+        firmaPath = 'lib/Assets/Img/firma_kaleyman.png';
       }
     
       final firmaData = await rootBundle.load(firmaPath);
@@ -125,10 +132,10 @@ class _ReciboPreviewState extends State<ReciboPreview> {
               font: ttf,
               fontSize: 12,
               fontWeight: pw.FontWeight.bold,
-              color: pw.PdfColors.blue900,
+              color: colorEmpresa,
             ),
           ),
-          pw.Container(height: 1, color: pw.PdfColors.blue900),
+          pw.Container(height: 1, color: colorEmpresa),
           pw.SizedBox(height: 3),
           pw.Text(valor, style: pw.TextStyle(font: ttf, fontSize: 12)),
         ],
@@ -158,7 +165,8 @@ class _ReciboPreviewState extends State<ReciboPreview> {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               // Logo
-              pw.Center(child: pw.Image(pw.MemoryImage(logoBytes), width: 140, height: 100)),
+              pw.SizedBox(height: 13),
+              pw.Center(child: pw.Image(pw.MemoryImage(logoBytes), width: 150, height: 110)),
               pw.SizedBox(height: 13),
               // Título
               pw.Center(
@@ -223,6 +231,16 @@ class _ReciboPreviewState extends State<ReciboPreview> {
 
   // ======== GUARDAR RECIBO ========
   Future<void> _guardarRecibo() async {
+    if (_yaGuardado) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('El recibo ya fue guardado anteriormente.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     final pdf = await _crearPdf();
     final pdfBytes = await pdf.save();
     final fileName =
@@ -240,12 +258,10 @@ class _ReciboPreviewState extends State<ReciboPreview> {
         valor: valorGuardado,
         valorTexto: widget.valorTexto,
         firma: widget.firma,
+        empresa: widget.empresa,
       ),
       widget.tipo == TipoRecibo.Ingreso ? 'Ingreso' : 'Egreso',
     );
-
-    // ===== Compartir PDF (opcional) =====
-    await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
 
     // ===== Guardar también en Descargas si es Windows =====
     if (Platform.isWindows) {
@@ -255,14 +271,23 @@ class _ReciboPreviewState extends State<ReciboPreview> {
 
         final filePath = '${downloadsDir.path}\\$fileName';
         final file = File(filePath);
-        await file.writeAsBytes(pdfBytes);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Recibo guardado en la app y en: $filePath'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (file.existsSync()) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('El archivo ya existe en Descargas: $fileName'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        } else {
+          await file.writeAsBytes(pdfBytes);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Recibo guardado en la app y en: $filePath'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -282,6 +307,8 @@ class _ReciboPreviewState extends State<ReciboPreview> {
         ),
       );
     }
+
+    _yaGuardado = true; // 🔹 marcamos que ya se guardó
   }
 
   // ======== ENVIAR PDF ========

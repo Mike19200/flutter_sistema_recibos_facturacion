@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_facturacion_sistema/Assets/Models/factura_model.dart';
+import 'package:flutter_facturacion_sistema/Assets/Models/seleccion_empresa.dart';
 import 'package:flutter_facturacion_sistema/Storage/factura_storage.dart' hide Factura;
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
@@ -21,6 +22,7 @@ class _ArchivosScreenState extends State<ArchivosScreen> {
   List<Factura> archivos = [];
   List<Factura> archivosFiltrados = [];
   String carpetaSeleccionada = 'Ingreso';
+  SeleccionEmpresa empresaSeleccionada = SeleccionEmpresa.Kaleyman;
 
   final List<String> carpetas = ['Ingreso', 'Egreso', 'Facturas'];
 
@@ -43,8 +45,10 @@ class _ArchivosScreenState extends State<ArchivosScreen> {
 
     setState(() {
       archivos = data;
-      archivosFiltrados = data;
+      archivosFiltrados =
+          data.where((f) => f.empresa == empresaSeleccionada).toList();
     });
+
   }
 
   void _buscar(String query) {
@@ -57,24 +61,50 @@ class _ArchivosScreenState extends State<ArchivosScreen> {
 
     Future<void> _abrirArchivo(Factura archivo) async {
     final pdf = pw.Document();
+
+    final PdfColor colorEmpresa =
+    archivo.empresa == SeleccionEmpresa.Latinoandes
+        ? PdfColors.red900
+        : PdfColors.blue900;
   
     final ttf = pw.Font.ttf(
       await rootBundle.load('lib/Assets/Fonts/Roboto-Regular.ttf'),
     );
   
-    final logoBytesData =
-        await rootBundle.load('lib/Assets/Img/logo.png');
+    String logoPath;
+
+    switch (archivo.empresa) {
+      case SeleccionEmpresa.Latinoandes:
+        logoPath = 'lib/Assets/Img/logo_latinoandes.png';
+        break;
+      case SeleccionEmpresa.Kaleyman:
+        logoPath = 'lib/Assets/Img/logo_kaleyman.png';
+        break;
+    }
+    
+    final logoBytesData = await rootBundle.load(logoPath);
     final Uint8List logoBytes = logoBytesData.buffer.asUint8List();
+
   
-    // ====== FIRMA ======
     Uint8List firmaFinal;
-    if (archivo.firma != null) {
-      firmaFinal = archivo.firma!; // Usar la firma guardada
-    } else {
-      // Por defecto
-      final ByteData firmaData =
-          await rootBundle.load('lib/Assets/Img/firma.png');
+
+    if (carpetaSeleccionada == 'Ingreso') {
+      // Firma automática por empresa
+      final firmaPath = archivo.empresa == SeleccionEmpresa.Latinoandes
+          ? 'lib/Assets/Img/firma_latinoandes.png'
+          : 'lib/Assets/Img/firma_kaleyman.png';
+    
+      final firmaData = await rootBundle.load(firmaPath);
       firmaFinal = firmaData.buffer.asUint8List();
+    } else {
+      // EGRESO → firma guardada (la que pidió el programa)
+      if (archivo.firma != null) {
+        firmaFinal = archivo.firma!;
+      } else {
+        final firmaData =
+            await rootBundle.load('lib/Assets/Img/firma_otrapersona.png');
+        firmaFinal = firmaData.buffer.asUint8List();
+      }
     }
 
   
@@ -105,8 +135,9 @@ class _ArchivosScreenState extends State<ArchivosScreen> {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             // Logo
+            pw.SizedBox(height: 13),
             pw.Center(
-              child: pw.Image(pw.MemoryImage(logoBytes), width: 140, height: 100),
+              child: pw.Image(pw.MemoryImage(logoBytes), width: 150, height: 110),
             ),
             pw.SizedBox(height: 13),
             // Título
@@ -141,12 +172,12 @@ class _ArchivosScreenState extends State<ArchivosScreen> {
                             font: ttf,
                             fontSize: 12,
                             fontWeight: pw.FontWeight.bold,
-                            color: PdfColors.blue900),
+                            color: colorEmpresa),
                       ),
                       pw.Container(
                         margin: const pw.EdgeInsets.symmetric(vertical: 2),
                         height: 1,
-                        color: PdfColors.blue900,
+                        color: colorEmpresa,
                       ),
                       pw.Text(archivo.ciudad, style: pw.TextStyle(font: ttf, fontSize: 12)),
                     ],
@@ -163,12 +194,12 @@ class _ArchivosScreenState extends State<ArchivosScreen> {
                             font: ttf,
                             fontSize: 12,
                             fontWeight: pw.FontWeight.bold,
-                            color: PdfColors.blue900),
+                            color: colorEmpresa),
                       ),
                       pw.Container(
                         margin: const pw.EdgeInsets.symmetric(vertical: 2),
                         height: 1,
-                        color: PdfColors.blue900,
+                        color: colorEmpresa,
                       ),
                       pw.Text(archivo.fecha, style: pw.TextStyle(font: ttf, fontSize: 12)),
                     ],
@@ -188,12 +219,12 @@ class _ArchivosScreenState extends State<ArchivosScreen> {
                       font: ttf,
                       fontSize: 12,
                       fontWeight: pw.FontWeight.bold,
-                      color: PdfColors.blue900),
+                      color: colorEmpresa),
                 ),
                 pw.Container(
                   margin: const pw.EdgeInsets.symmetric(vertical: 2),
                   height: 1,
-                  color: PdfColors.blue900,
+                  color: colorEmpresa,
                 ),
                 pw.Text(archivo.nombre, style: pw.TextStyle(font: ttf, fontSize: 12)),
               ],
@@ -210,12 +241,12 @@ class _ArchivosScreenState extends State<ArchivosScreen> {
                       font: ttf,
                       fontSize: 12,
                       fontWeight: pw.FontWeight.bold,
-                      color: PdfColors.blue900),
+                      color: colorEmpresa),
                 ),
                 pw.Container(
                   margin: const pw.EdgeInsets.symmetric(vertical: 2),
                   height: 1,
-                  color: PdfColors.blue900,
+                  color: colorEmpresa,
                 ),
                 pw.Text(archivo.concepto, style: pw.TextStyle(font: ttf, fontSize: 12)),
               ],
@@ -236,12 +267,12 @@ class _ArchivosScreenState extends State<ArchivosScreen> {
                             font: ttf,
                             fontSize: 12,
                             fontWeight: pw.FontWeight.bold,
-                            color: PdfColors.blue900),
+                            color: colorEmpresa),
                       ),
                       pw.Container(
                         margin: const pw.EdgeInsets.symmetric(vertical: 2),
                         height: 1,
-                        color: PdfColors.blue900,
+                        color: colorEmpresa,
                       ),
                       pw.Text('\$$valorMostrado', style: pw.TextStyle(font: ttf, fontSize: 12)),
                     ],
@@ -258,12 +289,12 @@ class _ArchivosScreenState extends State<ArchivosScreen> {
                             font: ttf,
                             fontSize: 12,
                             fontWeight: pw.FontWeight.bold,
-                            color: PdfColors.blue900),
+                            color: colorEmpresa),
                       ),
                       pw.Container(
                         margin: const pw.EdgeInsets.symmetric(vertical: 2),
                         height: 1,
-                        color: PdfColors.blue900,
+                        color: colorEmpresa,
                       ),
                       pw.Text('${archivo.valorTexto} COP',
                           style: pw.TextStyle(font: ttf, fontSize: 12)),
@@ -371,7 +402,34 @@ class _ArchivosScreenState extends State<ArchivosScreen> {
         title: const Text('Archivos'),
       ),
       body: Column(
-        children: [
+        children: [Padding(
+            padding: const EdgeInsets.all(10),
+            child: DropdownButtonFormField<SeleccionEmpresa>(
+              value: empresaSeleccionada,
+              items: const [
+                DropdownMenuItem(
+                  value: SeleccionEmpresa.Latinoandes,
+                  child: Text('LATINOANDES'),
+                ),
+                DropdownMenuItem(
+                  value: SeleccionEmpresa.Kaleyman,
+                  child: Text('KALEYMAN'),
+                ),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    empresaSeleccionada = value;
+                  });
+                  _cargarArchivos();
+                }
+              },
+              decoration: const InputDecoration(
+                labelText: 'Empresa',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
           // Selector de carpeta
           Padding(
             padding: const EdgeInsets.all(10),
@@ -432,7 +490,10 @@ class _ArchivosScreenState extends State<ArchivosScreen> {
                     child: Card(
                       child: ListTile(
                         title: Text(archivo.numero),
-                        subtitle: Text('${archivo.nombre} • ${archivo.fecha}'),
+                        subtitle: Text(
+                          '${archivo.nombre} • ${archivo.fecha} • '
+                          '${archivo.empresa == SeleccionEmpresa.Latinoandes ? 'Latinoandes' : 'KALEYMAN'}',
+                        ),
                         trailing: Text('\$${archivo.valor}'),
                         onTap: () => _abrirArchivo(archivo),
                       ),
